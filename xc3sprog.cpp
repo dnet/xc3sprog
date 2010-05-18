@@ -25,6 +25,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #include "devicedb.h"
 #include "progalgxcf.h"
 #include "progalgxc3s.h"
+#include <string.h>
+#include <stdlib.h>
 
 #define PPDEV "/dev/parport0"
 #define DEVICEDB "devlist.txt"

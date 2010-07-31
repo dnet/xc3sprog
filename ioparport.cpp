@@ -66,7 +66,7 @@ IOParport::IOParport(const char *device_name) : IOBase()
 		return;
 	}
 	
-	txonlybuf[0] = 0;
+	memset(txonlybuf, 0, sizeof(txonlybuf));
 	txonlybufpos = 1;
 	
 	error=false;
@@ -100,10 +100,17 @@ bool IOParport::txrx(bool tms, bool tdi)
 #define TOB txonlybuf[txonlybufpos]
 
 void IOParport::buftx(bool tms, bool tdi, char startval) {
-	TOB = startval;
-	if (tdi) TOB |= 2;
-	if (tms) TOB |= 1;
-	if (++txonlybufpos == sizeof(txonlybuf)) flushtob();
+	if (TOB & 8) {
+		TOB <<= 4;
+		TOB |= startval;
+		if (tdi) TOB |= 2;
+		if (tms) TOB |= 1;
+		if (++txonlybufpos == sizeof(txonlybuf)) flushtob();
+	} else {
+		TOB = startval | 8;
+		if (tdi) TOB |= 2;
+		if (tms) TOB |= 1;
+	}
 }
 
 void IOParport::tx(bool tms, bool tdi)
@@ -118,6 +125,7 @@ void IOParport::flushtob() {
 		fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
 		error = true;
 	}
+	memset(txonlybuf, 0, sizeof(txonlybuf));
 	txonlybufpos = 1;
 	fprintf(stderr, ".");
 }

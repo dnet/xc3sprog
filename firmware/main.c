@@ -59,6 +59,14 @@ uchar   usbFunctionRead(uchar *data, uchar len)
     return len;
 }
 
+void procByte(const uchar b) {
+	PORTC = (PORTC & 0xF0) | (b & 0x03); // ....i0dd
+	PORTC |= 0x04; // .....1.. TCK
+	if ((b & 4) == 4) {
+		readValue = (PINC & 0x08) >> 3;
+	}
+}
+
 /* usbFunctionWrite() is called when the host sends a chunk of data to the
  * device. For more information see the documentation in usbdrv/usbdrv.h.
  */
@@ -66,11 +74,8 @@ uchar   usbFunctionWrite(uchar *data, uchar len)
 {
 	uchar i;
 	for (i = 0; i < len; i++) {
-		PORTC = (PORTC & 0xF0) | (data[i] & 0x03); // ....i0dd
-		PORTC |= 0x04; // .....1.. TCK
-		if ((data[i] & 4) == 4) {
-			readValue = (PINC & 0x08) >> 3;
-		}
+		if (data[i] & 0x80) procByte(data[i] >> 4);
+		procByte(data[i]);
 	}
     return 1;
 }

@@ -31,8 +31,12 @@ class IOParport : public IOBase
   int fd;
   bool error;
   usbDevice_t *dev;
+  char txonlybuf[513];
+  int txonlybufpos;
   const char *usbErrorMessage(int errCode);
   usbDevice_t  *openDevice(void);
+  void buftx(bool tms, bool tdi, char startval);
+  void flushtob();
  public:
   IOParport(const char *device_name);
   ~IOParport();

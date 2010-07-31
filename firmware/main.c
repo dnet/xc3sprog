@@ -64,10 +64,11 @@ uchar   usbFunctionRead(uchar *data, uchar len)
  */
 uchar   usbFunctionWrite(uchar *data, uchar len)
 {
-	if (len > 0) {
-		PORTC = (PORTC & 0xF0) | (data[0] & 0x03); // ....i0dd
+	uchar i;
+	for (i = 0; i < len; i++) {
+		PORTC = (PORTC & 0xF0) | (data[i] & 0x03); // ....i0dd
 		PORTC |= 0x04; // .....1.. TCK
-		if ((data[0] & 4) == 4) {
+		if ((data[i] & 4) == 4) {
 			readValue = (PINC & 0x08) >> 3;
 		}
 	}

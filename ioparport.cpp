@@ -66,6 +66,8 @@ IOParport::IOParport(const char *device_name) : IOBase()
 		return;
 	}
 	
+	txonlybuf[0] = 0;
+	txonlybufpos = 1;
 	
 	error=false;
 }
@@ -74,13 +76,18 @@ bool IOParport::txrx(bool tms, bool tdi)
 {
 	int err;
 	char buffer[2];    /* room for dummy report ID */
-	buffer[0] = 0;
-	buffer[1] = 4;
-	if (tdi) buffer[1] |= 2;
-	if (tms) buffer[1] |= 1;
-	if((err = usbhidSetReport(dev, buffer, sizeof(buffer))) != 0) {   /* add a dummy report ID */
-		fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
-		error = true;
+	if (txonlybufpos != 1) {
+		buftx(tms, tdi, 4);
+		flushtob();
+	} else {
+		buffer[0] = 0;
+		buffer[1] = 4;
+		if (tdi) buffer[1] |= 2;
+		if (tms) buffer[1] |= 1;
+		if((err = usbhidSetReport(dev, buffer, sizeof(buffer))) != 0) {   /* add a dummy report ID */
+			fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
+			error = true;
+		}
 	}
 	int len = sizeof(buffer);
 	if((err = usbhidGetReport(dev, 0, buffer, &len)) != 0){
@@ -90,21 +97,33 @@ bool IOParport::txrx(bool tms, bool tdi)
 	return (buffer[1] & 1) == 1;
 }
 
+#define TOB txonlybuf[txonlybufpos]
+
+void IOParport::buftx(bool tms, bool tdi, char startval) {
+	TOB = startval;
+	if (tdi) TOB |= 2;
+	if (tms) TOB |= 1;
+	if (++txonlybufpos == sizeof(txonlybuf)) flushtob();
+}
+
 void IOParport::tx(bool tms, bool tdi)
 {
+	buftx(tms, tdi, 0);
+}
+
+void IOParport::flushtob() {
 	int err;
-	char buffer[2];    /* room for dummy report ID */
-	buffer[0] = 0;
-	buffer[1] = 0;
-	if (tdi) buffer[1] |= 2;
-	if (tms) buffer[1] |= 1;
-	if((err = usbhidSetReport(dev, buffer, sizeof(buffer))) != 0) {  /* add a dummy report ID */
+	if (txonlybufpos == 1) return;
+	if((err = usbhidSetReport(dev, txonlybuf, txonlybufpos)) != 0) {  /* add a dummy report ID */
 		fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
 		error = true;
 	}
+	txonlybufpos = 1;
+	fprintf(stderr, ".");
 }
 
 IOParport::~IOParport()
 {
+	flushtob();
 	usbhidCloseDevice(dev);
 }

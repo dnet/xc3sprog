@@ -22,18 +22,22 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #define IOPARPORT_H
 
 #include "iobase.h"
+#include "hiddata.h"
+#include "firmware/usbconfig.h"  /* for device VID, PID, vendor name and product name */
 
 class IOParport : public IOBase
 {
  protected:
   int fd;
   bool error;
+  usbDevice_t *dev;
+  const char *usbErrorMessage(int errCode);
+  usbDevice_t  *openDevice(void);
  public:
   IOParport(const char *device_name);
   ~IOParport();
   virtual bool txrx(bool tms, bool tdi);
   virtual void tx(bool tms, bool tdi);
-  void delay(int del);
   inline bool checkError(){return error;}
 };
 

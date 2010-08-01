@@ -19,101 +19,92 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 
 #include <stdio.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <linux/parport.h>
-#include <linux/ppdev.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "ioparport.h"
 
 using namespace std;
 
-void IOParport::delay(int del)
+const char* IOParport::usbErrorMessage(int errCode)
 {
-  struct timeval actualtime, endtime;
-  gettimeofday( &actualtime, NULL );
+	static char buffer[80];
+	
+	switch(errCode){
+		case USBOPEN_ERR_ACCESS:      return "Access to device denied";
+		case USBOPEN_ERR_NOTFOUND:    return "The specified device was not found";
+		case USBOPEN_ERR_IO:          return "Communication error with device";
+		default:
+			sprintf(buffer, "Unknown USB error %d", errCode);
+			return buffer;
+	}
+	return NULL;    /* not reached */
+}
 
-  endtime.tv_usec=(actualtime.tv_usec+del)% 1000000;
-  endtime.tv_sec=actualtime.tv_sec+(actualtime.tv_usec+del)/1000000;
-
-  while(1){
-    gettimeofday( &actualtime, NULL );
-    if ( actualtime.tv_sec > endtime.tv_sec )
-      return;
-    if ( actualtime.tv_sec == endtime.tv_sec )
-      if ( actualtime.tv_usec > endtime.tv_usec )
-        return;
-  }
+usbDevice_t* IOParport::openDevice(void)
+{
+	usbDevice_t     *dev = NULL;
+	unsigned char   rawVid[2] = {USB_CFG_VENDOR_ID}, rawPid[2] = {USB_CFG_DEVICE_ID};
+	char            vendorName[] = {USB_CFG_VENDOR_NAME, 0}, productName[] = {USB_CFG_DEVICE_NAME, 0};
+	int             vid = rawVid[0] + 256 * rawVid[1];
+	int             pid = rawPid[0] + 256 * rawPid[1];
+	int             err;
+	
+	if((err = usbhidOpenDevice(&dev, vid, vendorName, pid, productName, 0)) != 0){
+		fprintf(stderr, "error finding %s: %s\n", productName, usbErrorMessage(err));
+		return NULL;
+	}
+	return dev;
 }
 
 IOParport::IOParport(const char *device_name) : IOBase()
 {
-  fd = open (device_name, O_RDWR);
-  
-  if (fd == -1) {
-    //perror ("open");
-    error=true;
-    return;
-  }
-  
-  if (ioctl (fd, PPCLAIM)) {
-    perror ("PPCLAIM");
-    close (fd);
-    error=true;
-    return;
-  }
-  
-  // Switch to compatibility mode.
-  int mode = IEEE1284_MODE_COMPAT;
-  if (ioctl (fd, PPNEGOT, &mode)) {
-    perror ("PPNEGOT");
-    close (fd);
-    error=true;
-    return;
-  }
-  
-  error=false;
+	if((dev = openDevice()) == NULL) {
+		error=true;
+		return;
+	}
+	
+	
+	error=false;
 }
 
 bool IOParport::txrx(bool tms, bool tdi)
 {
-  unsigned char ret;
-  unsigned char data=0x10; // D4 pin5 TDI enable
-  if(tdi)data|=1; // D0 pin2
-  if(tms)data|=4; // D2 pin4
-  ioctl(fd, PPWDATA, &data);
-  //delay(2);
-  data|=2; // clk high D1 pin3
-  ioctl(fd, PPWDATA, &data);
-  ioctl(fd, PPRSTATUS, &ret);
-  //delay(2);
-  //data=data^2; // clk low
-  //ioctl(fd, PPWDATA, &data);
-  //delay(2);
-  //ioctl(fd, PPRSTATUS, &ret);
-  return (ret&0x10)!=0; // TDO pin13
+	int err;
+	char buffer[2];    /* room for dummy report ID */
+	buffer[0] = 0;
+	buffer[1] = 4;
+	if (tdi) buffer[1] |= 2;
+	if (tms) buffer[1] |= 1;
+	if((err = usbhidSetReport(dev, buffer, sizeof(buffer))) != 0) {   /* add a dummy report ID */
+		fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
+		error = true;
+	}
+	int len = sizeof(buffer);
+	if((err = usbhidGetReport(dev, 0, buffer, &len)) != 0){
+		fprintf(stderr, "error reading data: %s\n", usbErrorMessage(err));
+		error = true;
+	}
+	return (buffer[1] & 1) == 1;
 }
 
 void IOParport::tx(bool tms, bool tdi)
 {
-  unsigned char data=0x10; // D4 pin5 TDI enable
-  if(tdi)data|=1; // D0 pin2
-  if(tms)data|=4; // D2 pin4
-  ioctl(fd, PPWDATA, &data);
-  //delay(2);
-  data|=2; // clk high D1 pin3
-  ioctl(fd, PPWDATA, &data);
-  //delay(2);
-  //data=data^2; // clk low
-  //ioctl(fd, PPWDATA, &data);
-  //delay(2);
+	int err;
+	char buffer[2];    /* room for dummy report ID */
+	buffer[0] = 0;
+	buffer[1] = 0;
+	if (tdi) buffer[1] |= 2;
+	if (tms) buffer[1] |= 1;
+	if((err = usbhidSetReport(dev, buffer, sizeof(buffer))) != 0) {  /* add a dummy report ID */
+		fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
+		error = true;
+	}
 }
- 
+
 IOParport::~IOParport()
 {
-  ioctl (fd, PPRELEASE);
-  close (fd);
-
+	usbhidCloseDevice(dev);
 }

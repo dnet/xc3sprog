@@ -18,22 +18,23 @@
 
 
 GCC=g++
-LIBS=-lstdc++
+LIBS=-lstdc++ `libusb-config --libs`
+CFLAGS=-O -Wall `libusb-config --cflags`
 
 
 
 all:	debug bitparse detectchain xc3sprog
 
-debug: debug.o iobase.o ioparport.o iodebug.o
+debug: debug.o iobase.o ioparport.o iodebug.o hiddata.o
 	${GCC} ${LIBS} $^ -o $@
 
 bitparse: bitparse.o bitfile.o
 	${GCC} ${LIBS} $^ -o $@
 
-detectchain: detectchain.o jtag.o iobase.o ioparport.o iodebug.o devicedb.o
+detectchain: detectchain.o jtag.o iobase.o ioparport.o iodebug.o devicedb.o hiddata.o
 	${GCC} ${LIBS} $^ -o $@
 
-xc3sprog: xc3sprog.o jtag.o iobase.o ioparport.o iodebug.o bitfile.o devicedb.o progalgxcf.o progalgxc3s.o
+xc3sprog: xc3sprog.o jtag.o iobase.o ioparport.o iodebug.o bitfile.o devicedb.o progalgxcf.o hiddata.o progalgxc3s.o
 	${GCC} ${LIBS} $^ -o $@
 
 debug.o: debug.cpp iobase.h ioparport.h iodebug.h
@@ -72,7 +73,10 @@ progalgxcf.o: progalgxcf.cpp progalgxcf.h iobase.h jtag.h bitfile.h
 progalgxc3s.o: progalgxc3s.cpp progalgxc3s.h iobase.h jtag.h bitfile.h
 	${GCC} -c $< -o $@
 
+hiddata.o: hiddata.c
+	${GCC} -c $< -o $@ $(CFLAGS)
+
 clean:
 	rm -f debug.o iobase.o ioparport.o iodebug.o bitfile.o jtag.o xc3sprog.o 
-	rm -f devicedb.o bitparse.o detectchain.o progalgxcf.o progalgxc3s.o
+	rm -f devicedb.o bitparse.o detectchain.o progalgxcf.o progalgxc3s.o hiddata.o
 	rm -f debug bitparse detectchain xc3sprog

@@ -28,7 +28,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #include <string.h>
 #include <stdlib.h>
 
-#define PPDEV "/dev/parport0"
+#define PPDEV "/dev/ttyUSB0"
 #define DEVICEDB "devlist.txt"
 
 void process(IOBase &io, BitFile &file, int chainpos);

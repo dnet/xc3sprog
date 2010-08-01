@@ -22,11 +22,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #define IOPARPORT_H
 
 #include "iobase.h"
+#include <termios.h>
 
 class IOParport : public IOBase
 {
  protected:
   int fd;
+  struct termios oldtio;
   bool error;
  public:
   IOParport(const char *device_name);

@@ -54,7 +54,7 @@ void testDebug()
 void testPP()
 {
   IOBase *io;
-  io=new IOParport("/dev/parport0");
+  io=new IOParport("/dev/ttyUSB0");
   unsigned char tdi[]={0,0,0,0,0,0,0,0};
   unsigned char tdo[100];
   io->setTapState(IOBase::SHIFT_DR);

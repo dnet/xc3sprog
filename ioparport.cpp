@@ -21,35 +21,18 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <linux/parport.h>
-#include <linux/ppdev.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "ioparport.h"
 
 using namespace std;
 
-void IOParport::delay(int del)
-{
-  struct timeval actualtime, endtime;
-  gettimeofday( &actualtime, NULL );
-
-  endtime.tv_usec=(actualtime.tv_usec+del)% 1000000;
-  endtime.tv_sec=actualtime.tv_sec+(actualtime.tv_usec+del)/1000000;
-
-  while(1){
-    gettimeofday( &actualtime, NULL );
-    if ( actualtime.tv_sec > endtime.tv_sec )
-      return;
-    if ( actualtime.tv_sec == endtime.tv_sec )
-      if ( actualtime.tv_usec > endtime.tv_usec )
-        return;
-  }
-}
-
 IOParport::IOParport(const char *device_name) : IOBase()
 {
+  struct termios newtio;
+  char c;
   fd = open (device_name, O_RDWR);
   
   if (fd == -1) {
@@ -58,62 +41,50 @@ IOParport::IOParport(const char *device_name) : IOBase()
     return;
   }
   
-  if (ioctl (fd, PPCLAIM)) {
-    perror ("PPCLAIM");
-    close (fd);
-    error=true;
-    return;
-  }
-  
-  // Switch to compatibility mode.
-  int mode = IEEE1284_MODE_COMPAT;
-  if (ioctl (fd, PPNEGOT, &mode)) {
-    perror ("PPNEGOT");
-    close (fd);
-    error=true;
-    return;
-  }
-  
+  tcgetattr(fd, &oldtio);
+
+  bzero(&newtio, sizeof(newtio));
+  newtio.c_cflag = B115200 | CS8 | CLOCAL | CREAD;
+  newtio.c_iflag = IGNPAR;
+  newtio.c_oflag = 0;
+  newtio.c_lflag = 0;
+  newtio.c_cc[VTIME] = 0;
+  newtio.c_cc[VMIN] = 1;
+
+  tcflush(fd, TCIFLUSH);
+  tcsetattr(fd, TCSANOW, &newtio);
+
+  fprintf(stderr, "Waiting for Arduino to load the sketch...");
+  //read(fd, &c, 1);
+  sleep(3);
+  fprintf(stderr, " done\n");
+
   error=false;
 }
 
 bool IOParport::txrx(bool tms, bool tdi)
 {
   unsigned char ret;
-  unsigned char data=0x10; // D4 pin5 TDI enable
-  if(tdi)data|=1; // D0 pin2
-  if(tms)data|=4; // D2 pin4
-  ioctl(fd, PPWDATA, &data);
-  //delay(2);
-  data|=2; // clk high D1 pin3
-  ioctl(fd, PPWDATA, &data);
-  ioctl(fd, PPRSTATUS, &ret);
-  //delay(2);
-  //data=data^2; // clk low
-  //ioctl(fd, PPWDATA, &data);
-  //delay(2);
-  //ioctl(fd, PPRSTATUS, &ret);
-  return (ret&0x10)!=0; // TDO pin13
+  unsigned char data=4; // rx mode
+  if(tdi)data|=2;
+  if(tms)data|=1;
+  write(fd, &data, 1);
+  read(fd, &ret, 1);
+  return (ret & 1) == 1;
 }
 
 void IOParport::tx(bool tms, bool tdi)
 {
-  unsigned char data=0x10; // D4 pin5 TDI enable
-  if(tdi)data|=1; // D0 pin2
-  if(tms)data|=4; // D2 pin4
-  ioctl(fd, PPWDATA, &data);
-  //delay(2);
-  data|=2; // clk high D1 pin3
-  ioctl(fd, PPWDATA, &data);
-  //delay(2);
-  //data=data^2; // clk low
-  //ioctl(fd, PPWDATA, &data);
-  //delay(2);
+  unsigned char data=0;
+  if(tdi)data|=2;
+  if(tms)data|=1;
+  write(fd, &data, 1);
 }
  
 IOParport::~IOParport()
 {
-  ioctl (fd, PPRELEASE);
+  usleep(0);
+  tcsetattr(fd, TCSANOW, &oldtio);
   close (fd);
 
 }

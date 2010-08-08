@@ -60,10 +60,10 @@ uchar   usbFunctionRead(uchar *data, uchar len)
 }
 
 void procByte(const uchar b) {
-	PORTC = (PORTC & 0xF0) | (b & 0x03); // ....i0dd
-	PORTC |= 0x04; // .....1.. TCK
+	PORTC = (PORTC & 0xC3) | ((b & 0x03) << 4); // ..dd0i..
+	PORTC |= 0x08; // ....1... TCK
 	if ((b & 4) == 4) {
-		readValue = (PINC & 0x08) >> 3;
+		readValue = (PINC & 0x04) >> 2;
 	}
 }
 
@@ -114,8 +114,8 @@ uchar   i;
      * That's the way we need D+ and D-. Therefore we don't need any
      * additional hardware initialization.
      */
-	DDRC = (DDRC & 0xF0) | 0x07; // ....0111 - TDO-TCK-TDI-TMS
-	PORTC &= 0xF0; // TCK = TDI = TMS = 0, TDO pullup disabled
+	DDRC = (DDRC & 0xC3) | 0x38; // ..1110.. - TMS-TDI-TCK-TDO
+	PORTC &= 0xC3; // TCK = TDI = TMS = 0, TDO pullup disabled
     usbInit();
     usbDeviceDisconnect();  /* enforce re-enumeration, do this while interrupts are disabled! */
     i = 0;

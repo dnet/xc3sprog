@@ -82,8 +82,8 @@ bool IOParport::txrx(bool tms, bool tdi)
 	} else {
 		buffer[0] = 0;
 		buffer[1] = 4;
-		if (tdi) buffer[1] |= 2;
-		if (tms) buffer[1] |= 1;
+		if (tdi) buffer[1] |= 1;
+		if (tms) buffer[1] |= 2;
 		if((err = usbhidSetReport(dev, buffer, sizeof(buffer))) != 0) {   /* add a dummy report ID */
 			fprintf(stderr, "error writing data: %s\n", usbErrorMessage(err));
 			error = true;
@@ -103,13 +103,13 @@ void IOParport::buftx(bool tms, bool tdi, char startval) {
 	if (TOB & 8) {
 		TOB <<= 4;
 		TOB |= startval;
-		if (tdi) TOB |= 2;
-		if (tms) TOB |= 1;
+		if (tdi) TOB |= 1;
+		if (tms) TOB |= 2;
 		if (++txonlybufpos == sizeof(txonlybuf)) flushtob();
 	} else {
 		TOB = startval | 8;
-		if (tdi) TOB |= 2;
-		if (tms) TOB |= 1;
+		if (tdi) TOB |= 1;
+		if (tms) TOB |= 2;
 	}
 }
 

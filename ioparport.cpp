@@ -127,7 +127,6 @@ void IOParport::flushtob() {
 	}
 	memset(txonlybuf, 0, sizeof(txonlybuf));
 	txonlybufpos = 1;
-	fprintf(stderr, ".");
 }
 
 IOParport::~IOParport()
